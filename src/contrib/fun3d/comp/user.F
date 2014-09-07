@@ -23,7 +23,7 @@
 !============================== FORLINK ==============================72
 !
 !  FORLINK establishes links between FORTRAN common blocks and C
-!
+! 连接FORTRAN公共块到C语言
 !=====================================================================72
       subroutine FORLINK()
 
@@ -44,7 +44,7 @@
 !============================== Block_Initialization  ================72
 !
 ! Initializes the common blocks members for turbulence model
-!
+! SA湍流模型的参数
 !=====================================================================72
       block data Block_Initialization
       common/turb/vkar,cmu,ce1,ce2,aplus1,aplus2,turbinf
@@ -262,7 +262,17 @@ c============================================================================
       common/runge/cfl1,cfl2,nsmoth,iflim,itran,nbtran,jupdate,
      &             nstage,ncyct,iramp,nitfo,ncyc
       common/refgeom/sref,cref,bref,xmc,ymc,zmc
+c======== 文件格式
+title
 
+msq ihane ivisc ileast iflim jupdate
+
+xmach alpha yaw Re
+
+sref,cref,bref,xmc,ymc,zmc
+
+cfl2,dt,irest,itran,nbtran
+c========
       read(7,10)(title(i),i=1,20)
       if (irank .eq. 0) write(10,11)(title(i),i=1,20)
 
@@ -440,21 +450,21 @@ c
       read (unit) (y(i),i=1,nnodes)
       read (unit) (z(i),i=1,nnodes)
 c
-!  Read median dual volume surrounding each node
+!  Read median dual volume surrounding each node 格点体积
 c
       read (unit) (vol(i),i=1,nnodes)
 c
-!  Read node indices for each edge
+!  Read node indices for each edge 每条边的两个端点 编号 
 c
       read (unit) (evec(k,1),k=1,nedge),(evec(k,2),k=1,nedge)
 c
 !  Read in unit normals of dual mesh face (from node 1 to node 2)
-!  and the area of the dual mesh face 
+!  and the area of the dual mesh face 界面面积矢量
 c
       read (unit) (xn(k),k=1,nedge),(yn(k),k=1,nedge),
      &            (zn(k),k=1,nedge),(ra(k),k=1,nedge)
-c
-!  Read Cell colors
+c 颜色代表分，类似红黑迭代之类，或者向量化。但是这里并不采用
+!  Read Cell colors 
 c
       read (unit) (idum,i=1,nccolor)
 c
@@ -481,37 +491,37 @@ c
       end do
 c
 !  Read inviscid surface info
-c
+c  nnbound 无粘壁面面元个数
       read (unit) (nntet(i),i=1,nnbound)
       read (unit) (nnpts(i),i=1,nnbound)
 c
 !  Read viscous surface info
-c
+c 元
       read (unit) (nvtet(i),i=1,nvbound)
       read (unit) (nvpts(i),i=1,nvbound)
 c
 !  Read far field info
-c
+c 
       read (unit) (nftet(i),i=1,nfbound)
       read (unit) (nfpts(i),i=1,nfbound)
 c
-!  Read list of faces on inviscid boundaries
+!  Read list of faces on inviscid boundaries无粘壁面面元
 c
       read (unit) (f2ntn(i,1),i=1,nnfacet),(f2ntn(i,2),i=1,nnfacet),
      &            (f2ntn(i,3),i=1,nnfacet),(f2ntn(i,4),i=1,nnfacet)
 c
-!  Read list of faces on viscous boundaries
+!  Read list of faces on viscous boundaries粘性面
 c
       read (unit) (f2ntv(i,1),i=1,nvfacet),(f2ntv(i,2),i=1,nvfacet),
      &            (f2ntv(i,3),i=1,nvfacet),(f2ntv(i,4),i=1,nvfacet)
 c
-!  Read list of faces on far field boundaries
+!  Read list of faces on far field boundaries远场面元
 c
       read (unit) (f2ntf(i,1),i=1,nffacet),(f2ntf(i,2),i=1,nffacet),
      &            (f2ntf(i,3),i=1,nffacet),(f2ntf(i,4),i=1,nffacet)
 c
 !  Read list of info associated with nodes on each inviscid boundary
-c
+c 无粘壁面顶点 和 壁面法向
       read (unit) (isnode(i),i=1,nsnode)
       read (unit) (sxn(i),i=1,nsnode),(syn(i),i=1,nsnode),
      &            (szn(i),i=1,nsnode)
@@ -529,7 +539,7 @@ c
      &            (fzn(i),i=1,nfnode)
 c
 ! Read in the distance function
-c
+c 湍流情况下用到 壁面距离
       if (ivisc.gt.3) then
          read(unit)(slen(i),i=1,nnodes)
       end if
@@ -713,7 +723,7 @@ c================================== INIT =============================72
 !
 !   + do a zone-title, so we can keep track of things
 !   + start with solid-wall boundary surfaces
-!  
+!  循环每个无粘壁面
       isp   = 1
       ist   = 1
       do 10 i=1,nnbound
@@ -734,15 +744,18 @@ c================================== INIT =============================72
           write(c4,'(3hff.,i1.1)') i
           write(99,1000) c4,nnpts(i),nntet(i)
 	endif
-!
+!  x y z
+! 所有的无粘壁面点是统一编号的，因此要记录当前壁面点的起始偏移isp
         write(99,1010) (x(j),j=isp,isp+nnpts(i)-1)
         write(99,1010) (y(j),j=isp,isp+nnpts(i)-1)
         write(99,1010) (z(j),j=isp,isp+nnpts(i)-1)
+! rho u v w p/pinf
         write(99,1010) (qnode(1,j),j=isp,isp+nnpts(i)-1)
         write(99,1010) (qnode(2,j),j=isp,isp+nnpts(i)-1)
         write(99,1010) (qnode(3,j),j=isp,isp+nnpts(i)-1)
         write(99,1010) (qnode(4,j),j=isp,isp+nnpts(i)-1)           
         write(99,1010) (qnode(5,j)/pinf,j=isp,isp+nnpts(i)-1)
+! s mach
         write(99,1010) ((qnode(5,j)/pinf)/
      1                  qnode(1,j)**gamma - 1.0,   
      2                  j=isp,isp+nnpts(i)-1)
@@ -752,7 +765,7 @@ c================================== INIT =============================72
      3                  (gamma*qnode(5,j)/
      4                  qnode(1,j))),
      5                  j=isp,isp+nnpts(i)-1)
-!
+! element verteces
         do 30 j=ist,ist+nntet(i)-1
 !
           i1 = f2ntn(j,1) - isp + 1
